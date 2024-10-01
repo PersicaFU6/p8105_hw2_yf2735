@@ -1,7 +1,0 @@
----
-title: "p8105_hw2_yf2735"
-author: "Yujing FU"
-date: "2024-09-26"
-output: github_document
----
-
