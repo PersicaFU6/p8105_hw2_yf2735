@@ -1,0 +1,238 @@
+---
+title: "p8105_hw2_yf2735"
+author: "Yujing FU"
+date: "2024-09-26"
+output: github_document
+---
+```{r setup, echo = FALSE}
+library(tidyverse)
+library(readxl)
+library(dplyr)
+library(janitor)
+```
+
+## problem 1
+
+```{r}
+subway_df = 
+  read_csv(file = "data/NYC_Transit_Subway_Entrance_And_Exit_Data.csv", na = c("NA", "", ".")) |> 
+  janitor::clean_names() |> 
+  select(division:entry,vending,ada)
+subway_df = mutate(subway_df, entry = case_when( 
+                            entry == "YES" ~ TRUE,
+                            entry == "NO" ~ FALSE))
+
+subway_df
+```
+
+The dataset contains information about the entrances and exits of the New York City Transit Subway system. It includes variables such as the subway line `line`, station name `station_name`, division `division`, entry `entry`, vending availability `vending`, Americans with Disabilities Act (ADA) compliance `ada` and so on. 
+
+My data cleaning steps including first recognize strings like "NA", "", and "." as missing values and applied janitor::clean_names to standardize the column names. And then I selected important columns and convert the entry variable from character values "YES" and "NO" to logical values TRUE and FALSE.
+
+The dimension of the dataset is `r dim(subway_df)` for row and column.
+
+There are `r nrow(distinct(subway_df, station_name, line))` distinct stations.
+
+There are 84 stations that are ADA.
+```{r}
+num_ada_station = subway_df |> 
+  filter(ada == TRUE) |> 
+  distinct(line, station_name) |> 
+  count()
+num_ada_station
+```
+
+The proportion of station entrances/exits without vending allow entrance is 3.69%.
+```{r}
+entrance_without_vending = filter(subway_df, entry == TRUE, vending == "NO")
+proportion_entrance_without_vending = nrow(entrance_without_vending) / nrow(subway_df)
+proportion_entrance_without_vending
+```
+
+I Reformated data so that route number and route name are distinct variables. There are 60 distinct stations serve the A train. Of the stations that serve the A train, 17 of them are ADA compliant.
+```{r}
+subway_df = subway_df  |> 
+  mutate(across(starts_with("route"), as.character))
+
+re_subway_df = subway_df |> 
+  pivot_longer(
+    route1 : route11,
+    names_to = "route_number",
+    names_prefix = "route",
+    values_to = "route_name"
+  )
+
+dist_Atrain_stations = re_subway_df |> 
+  filter(route_name == "A") |> 
+  distinct(line, station_name) |> 
+  count()
+dist_Atrain_stations
+
+dist_Atrain_station_ADA = re_subway_df |> 
+  filter(route_name == "A",
+         ada == TRUE) |>
+  distinct(line, station_name) |> 
+  count()
+dist_Atrain_station_ADA
+```
+
+## problem 2
+
+
+Mr. Trash Wheel dataset
+```{r}
+mr_trash_df = 
+  read_excel("data/202409 Trash Wheel Collection Data.xlsx", sheet = "Mr. Trash Wheel", skip = 1) |> 
+  select(-starts_with("...")) |> 
+  janitor::clean_names() |>
+  filter(!is.na(dumpster)) |> 
+  mutate(sports_balls = as.integer(round(sports_balls, 0)))
+mr_trash_df
+```
+
+Professor Trash Wheel dataset
+```{r}
+prof_trash_df = 
+  read_excel("data/202409 Trash Wheel Collection Data.xlsx", sheet = "Professor Trash Wheel", skip = 1) |> 
+  select(-starts_with("...")) |> 
+  janitor::clean_names() |>
+  filter(!is.na(dumpster)) |> 
+  mutate(year = as.character(year))
+prof_trash_df
+```
+
+Gwynnda Trash Wheel
+```{r}
+gwynnda_trash_df = 
+  read_excel("data/202409 Trash Wheel Collection Data.xlsx", sheet = "Gwynnda Trash Wheel", skip = 1) |> 
+  select(-starts_with("...")) |> 
+  janitor::clean_names() |>
+  filter(!is.na(dumpster)) |> 
+  mutate(year = as.character(year))
+gwynnda_trash_df
+```
+
+Combing three datasets
+```{r}
+all_trash_wheels = bind_rows(
+  mr_trash_df |>  mutate(trash_wheel_name = "Mr. Trash Wheel"),
+  prof_trash_df |>  mutate(trash_wheel_name = "Professor Trash Wheel"),
+  gwynnda_trash_df |>  mutate(trash_wheel_name = "Gwynnda Trash Wheel")
+) |> 
+  select(trash_wheel_name, everything())
+all_trash_wheels
+```
+
+## Trash Wheel Data Summary
+This combined dataset `all_trash_wheels` has `r nrow(all_trash_wheels)` observations.
+
+Key variables are listed as follows:
+The name of the trash wheel: `trash_wheel_name`, e.g. `r all_trash_wheels$trash_wheel_name[1]`.
+
+The date:`date`, e.g.`r all_trash_wheels$date[1]`.
+
+The weight of trash collected(tons): `weight_tons`,e.g. `r all_trash_wheels$weight_tons[1]`.
+
+The volume of trash collected(cubic):`volume_cubic_yards`, e,g, `r all_trash_wheels$volume_cubic_yards[1]`.
+
+The amount of plastic bottles it collected: `plastic_bottles`, e.g.`r all_trash_wheels$plastic_bottles[1]`.
+
+The amount of polystyrene it collected: `polystyrene`, e.g. `r all_trash_wheels$polystyrene[1]`.
+
+The total weight of trash collected by Professor Trash Wheel is 
+`r prof_trash_df |> pull(weight_tons) |> sum(na.rm = TRUE)` tons.
+
+The total number of cigarette butts collected by Gwynnda in June of 2022 is `r gwynnda_trash_df |> filter(month == "June", year == "2022") |> pull(cigarette_butts) |> sum(na.rm = TRUE)`
+
+
+## problem 3
+```{r}
+library(readr)
+library(janitor)
+library(dplyr)
+
+bakers_df =
+  read_csv("data/gbb_datasets/bakers.csv") |> 
+  janitor::clean_names() |> 
+  mutate(baker = word(baker_name, 1, sep = " "),
+         series = as.numeric(series)) 
+bakers_df
+
+
+bakes_df =
+  read_csv("data/gbb_datasets/bakes.csv") |> 
+  janitor::clean_names() |> 
+  mutate(series = as.numeric(series),
+         episode = as.numeric(episode))
+bakes_df
+
+results_df =
+  read_csv("data/gbb_datasets/results.csv", skip=2) |> 
+  janitor::clean_names() |> 
+  mutate(series = as.numeric(series),
+         episode = as.numeric(episode))
+results_df
+
+```
+
+Use antijoin to compare datasets
+```{r}
+anti_join(bakes_df, results_df, by = c("series", "episode", "baker"))
+anti_join(results_df, bakes_df, by = c("series", "episode", "baker"))
+anti_join(bakers_df, bakes_df, by = c("series", "baker"))
+anti_join(bakes_df, bakers_df, by = c("series", "baker"))
+anti_join(bakers_df, results_df, by = c("series", "baker"))
+anti_join(results_df, bakers_df, by = c("series", "baker"))
+```
+
+create a single dataset
+```{r}
+merged_df = bakes_df |>
+  full_join(bakers_df, by = c("baker" = "baker", "series" = "series")) |> 
+  full_join(results_df, by = c("baker" = "baker", "series" = "series", "episode" = "episode")) |> 
+  select(baker,everything())
+merged_df
+```
+
+export as csv
+```{r}
+write_csv(merged_df, "data/gbb_datasets/merged_data.csv")
+head(merged_df)
+```
+
+Data cleaning process: 
+I first import these three datasets and standardize their names. Because the `baker_name` in the `bakers_df` is the full name and the `baker` in other three datasets are the first name, so I generate a new variable also called `baker` in the `bakers_df` for convenience and future merge. And while import the `results_df`, there are two unnecessary lines before the data, so I skipped those two rows. 
+For merging these three data frame, I used the variable `baker` and `series` as the benchmark and delete the `baker` because we already have ` baker_name`. After merging, I put the `baker_name` in the first column for a clearer view.
+
+The final dataset includes key information and variables such as their name by `baker_name`, the series and episodes they participated by `series` and `episodes` and the competition results by `result`. Additionally, there are also some main information of the baker such as their age by `baker_age`, their job by`baker_occupation` and their home town by `hometown`. 
+
+## star baker or winner of each episode in Seasons 5 through 10. 
+```{r}
+star_bakers_and_winners = merged_df |> 
+  filter(result == "STAR BAKER" | result == "WINNER") |> 
+  filter(series >= 5 & series <= 10) |> 
+  select(baker, series, episode, result)
+view(star_bakers_and_winners)
+
+```
+It's surprising that in series 5 and 10, although Nancy and David only won the STAR BAKER once but still won the final competition.For series 6 to 9, it's predictable because all final winners was awarded at least two times in each series.
+
+
+## viewership 
+Import, clean, tidy, and organize the viewership data in viewership.csv. Show the first 10 rows of this dataset. What was the average viewership in Season 1? In Season 5?
+```{r}
+viewership =
+  read_csv("data/gbb_datasets/viewers.csv") |> 
+  janitor::clean_names() |> 
+  mutate(episode = as.numeric(episode)) |> 
+  mutate(across(starts_with("series"), ~as.numeric(.)))
+
+head(viewership)
+
+avg_viewership_s1 = mean(pull(viewership, `series_1`), na.rm = TRUE)
+avg_viewership_s5 = mean(pull(viewership, `series_5`), na.rm = TRUE)
+
+avg_viewership_s1
+avg_viewership_s5
+```
+The average viewership in Season 1 is 2.77, and is 10.04 in Season 5.
